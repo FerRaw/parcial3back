@@ -28,7 +28,12 @@ DEBUG = True
 #ALLOWED_HOSTS = ['.vercel.app']
 ALLOWED_HOSTS = ['*']
 
-CORS_ORIGIN_ALLOW_ALL = True
+#CORS_ORIGIN_ALLOW_ALL = True
+
+CORS_ALLOWED_ORIGINS = [
+    "https://parcial3front-fernandos-projects-528f4e5e.vercel.app",
+    # Otros orígenes permitidos si es necesario
+]
 
 
 # Application definition
