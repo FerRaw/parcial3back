@@ -41,7 +41,7 @@ collection_buses = dbname['Buses']
 collection_articulos = dbname['Articulos']
 collection_pujas = dbname['Pujas']
 
-CLIENT_ID = '739979864172-bbrds0insroblueqf3grvncjuj4m3dca.apps.googleusercontent.com'
+CLIENT_ID = '1070292351809-53c621o3hvn65teqrbrai79uncdj9604.apps.googleusercontent.com'
 # ----------------------------------------  VISTAS DE LA APLICACIÓN ------------------------------
 
 @api_view(['POST'])
