@@ -1,0 +1,13 @@
+Django
+pymongo==3.12.3
+djongo==1.3.6
+pytz
+dnspython
+djangorestframework
+django-cors-headers
+python-dateutil
+geopy
+requests
+djangorestframework-simplejwt
+cloudinary
+google-auth
