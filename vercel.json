@@ -1,8 +1,16 @@
 {
-"version": 2,
-"public": false,
-"builds": [{ "src": "main.py", "use": "@vercel/python" }],
-"routes": [
-{ "src": "^(.*)$", "dest": "main.py" }
-]
- }
+  "version": 2,
+  "name": "my-django-app",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ]
+}
