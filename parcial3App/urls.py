@@ -4,15 +4,11 @@ from parcial3App import views
 urlpatterns = [
     # PRODUCTOS
     path('logged', views.oauth),
-    path('lineas/', views.lineas),
-    path('lineas/<str:codLinea>/<str:sentido>/', views.latlon),
-    path('paradas/<str:parada>/', views.form2),
+    path('eventos/', views.eventos_list),
+    path('eventos/create/', views.eventos_list),
+    path('eventos/update/<str:id>/', views.eventos_detail),
+    path('eventos/delete/<str:id>/', views.eventos_delete),
+    path('eventos/<str:id>/', views.eventos_detail),
+    path('form/<str:cadena>/', views.form),
     path('image/upload', views.upload_image),
-    path('articulo/<str:id>/', views.articulos_detail),
-    path('articulos/', views.articulos_list),
-    path('articulos/create/', views.articulos_list),
-    path('articulos/<str:descripcion>/', views.articulos_list_descripcion),
-    path('pujas/producto/<str:id>/', views.pujas_list),
-    path('pujas/create/', views.pujas_create),
-    path('pujas/last/<str:id>/', views.pujas_last),
 ]

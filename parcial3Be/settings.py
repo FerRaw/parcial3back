@@ -25,15 +25,9 @@ SECRET_KEY = 'django-insecure-*-dajv2)zxl$tg6jy*@icb$^+^v6*s(vdq9oyw6h+4^k9=3925
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-#ALLOWED_HOSTS = ['.vercel.app']
 ALLOWED_HOSTS = ['*']
 
-#CORS_ORIGIN_ALLOW_ALL = True
-
-CORS_ALLOWED_ORIGINS = [
-    "https://parcial3front-fernandos-projects-528f4e5e.vercel.app",
-    # Otros orígenes permitidos si es necesario
-]
+CORS_ORIGIN_ALLOW_ALL=True
 
 
 # Application definition
@@ -51,7 +45,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.mid    dleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

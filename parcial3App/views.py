@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from parcial3App.serializers import  LineaSerializer , ArticuloSerializer , PujaSerializer
+from parcial3App.serializers import  EventoSerializer
 
 import pymongo
 import requests
@@ -30,6 +30,9 @@ from django.shortcuts import render, get_object_or_404
 
 from parcial3App.serializers import TokenSerializer
 
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
+
 # Conexión a la base de datos MongoDB
 my_client = pymongo.MongoClient("mongodb+srv://usuario:usuario@cluster0.inp8hlj.mongodb.net/?retryWrites=true&w=majority")
 
@@ -37,9 +40,7 @@ my_client = pymongo.MongoClient("mongodb+srv://usuario:usuario@cluster0.inp8hlj.
 dbname = my_client['PruebaExamen']
 
 # Colecciones
-collection_buses = dbname['Buses']
-collection_articulos = dbname['Articulos']
-collection_pujas = dbname['Pujas']
+collection_eventos = dbname['Eventos']
 
 CLIENT_ID = '1070292351809-53c621o3hvn65teqrbrai79uncdj9604.apps.googleusercontent.com'
 # ----------------------------------------  VISTAS DE LA APLICACIÓN ------------------------------
@@ -77,50 +78,6 @@ def oauth(request):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
-#Devuelve solamente el numero de lineas
-@api_view(['GET'])
-def lineas(request):
-    if request.method == 'GET':
-        buses = list(collection_buses.find())
-        lineas = []
-        for bus in buses:
-            if bus['codLinea'] not in lineas:
-                lineas.append(bus['codLinea'])
-        if lineas:
-            print(lineas)
-            return JsonResponse(lineas, status=status.HTTP_200_OK, safe=False)
-        else :
-            return JsonResponse({'message': 'No hay lineas'}, status=status.HTTP_404_NOT_FOUND)
-        
-#Devuelve el cojunto de latitudes y longitudes de una linea y sentido concreto
-@api_view(['GET'])
-def latlon(request, codLinea, sentido):
-    if request.method == 'GET':
-        print(codLinea,sentido)
-        buses = list(collection_buses.find({"codLinea": int(codLinea), "sentido": int(sentido)}))
-        print(buses)
-        latlon = []
-        for bus in buses:
-            latlon.append([bus['lat'], bus['lon']])
-        if latlon:
-            return JsonResponse(latlon, status=status.HTTP_200_OK, safe=False)
-        else :
-            return JsonResponse({'message': 'No hay latitudes y longitudes'}, status=status.HTTP_404_NOT_FOUND)
-
-#Devuelve el cojunto de latitudes y longitudes de una parada que contenga el string que se le pasa
-@api_view(['GET'])
-def form2(request, parada):
-    if request.method == 'GET':
-        print(parada)
-        buses = list(collection_buses.find({"nombreParada": {"$regex": parada, "$options": "i"}}))
-        paradas = []
-        for bus in buses:
-            paradas.append([bus['lat'], bus['lon']])
-        if paradas:
-            return JsonResponse(paradas, status=status.HTTP_200_OK, safe=False)
-        else :
-            return JsonResponse({'message': 'No hay paradas'}, status=status.HTTP_404_NOT_FOUND)
-        
 @api_view(['POST'])
 def upload_image(request):
     if request.method == 'POST' and request.FILES.getlist('images'):
@@ -143,98 +100,97 @@ def upload_image(request):
         return JsonResponse({'urls': uploaded_urls})
     return HttpResponse(status=400)
 
-# Devuelve todos los productos y permite crear un producto
+#Lista todos los eventos y crea eventos
 @api_view(['GET', 'POST'])
-def articulos_list(request):
+def eventos_list(request):
     if request.method == 'GET':
-        productos = list(collection_articulos.find({}).sort('fecha', pymongo.DESCENDING))        
-        productos_serializer = ArticuloSerializer(data=productos, many= True)
-        if productos_serializer.is_valid():
-            json_data = productos_serializer.data
+        eventos = list(collection_eventos.find({}).sort('timestamp', pymongo.DESCENDING))
+        for evento in eventos:
+            evento['_id'] = str(ObjectId(evento.get('_id',[])))
+        eventos_serializer = EventoSerializer(data=eventos, many= True)
+        if eventos_serializer.is_valid():
+            json_data = eventos_serializer.data
             return Response(json_data, status=status.HTTP_200_OK)
         else:
-            return Response(productos_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(eventos_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'POST':
-        serializer = ArticuloSerializer(data=request.data)
+        serializer = EventoSerializer(data=request.data)
         if serializer.is_valid():
-            producto = serializer.validated_data
-            producto['identificador'] = str(ObjectId())
-            producto['precioSalida'] = float(producto['precioSalida'])
-            producto['comprador'] = "" 
+            evento = serializer.validated_data
+            evento['_id'] = ObjectId()
+            coordenadas = get_coordinates(evento['lugar'])
+            evento['lat'] = float(coordenadas['latitud'])
+            evento['lon'] = float(coordenadas['longitud'])
+            print(evento)
 
-            result = collection_articulos.insert_one(producto)
+            result = collection_eventos.insert_one(evento)
             if result.acknowledged:
-                return Response({"message": "Producto creado con éxito."}, status=status.HTTP_201_CREATED)
+                return Response({"message": "Evento creado con éxito."}, status=status.HTTP_201_CREATED)
             else:
-                return Response({"error": "Algo salió mal. Producto no creado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": "Algo salió mal. Evento no creado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-# Buscar una lista de arituclos por descripción dada una cadena de texto concreta
-@api_view(['GET'])
-def articulos_list_descripcion(request, descripcion):
-    if request.method == 'GET':
-        productos = list(collection_articulos.find({"descripcion": {"$regex": descripcion, "$options": "i"}}).sort('fecha', pymongo.DESCENDING))
-        productos_serializer = ArticuloSerializer(data=productos, many= True)
-        if productos_serializer.is_valid():
-            json_data = productos_serializer.data
+# Modifica un evento dado su identificador
+@api_view(['PUT'])
+def eventos_detail(request, id):
+    if request.method == 'PUT':
+        evento = collection_eventos.find_one_and_update({"_id": ObjectId(id)}, {"$set": request.data}, return_document=ReturnDocument.AFTER)
+        evento_serializer = EventoSerializer(data=evento)
+        if evento_serializer.is_valid():
+            json_data = evento_serializer.data
             return Response(json_data, status=status.HTTP_200_OK)
         else:
-            return Response(productos_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(evento_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-# Devuelve un producto dada su identificador
+#Borra un evento dado su identificador
+@api_view(['DELETE'])
+def eventos_delete(request, id):
+    if request.method == 'DELETE':
+        result = collection_eventos.delete_one({"_id": ObjectId(id)})
+        if result.acknowledged:
+            return Response({"message": "Evento borrado con éxito."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Algo salió mal. Evento no borrado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+#Devuelve un evento dado su localización
 @api_view(['GET'])
-def articulos_detail(request, id):
+def eventos_detail(request, id):
     if request.method == 'GET':
-        producto = collection_articulos.find_one({"identificador": id})
-        producto_serializer = ArticuloSerializer(data=producto)
-        if producto_serializer.is_valid():
-            json_data = producto_serializer.data
+        evento = collection_eventos.find_one({"lugar": id})
+        evento['id'] = str(ObjectId(evento.get('_id',[])))
+        evento_serializer = EventoSerializer(data=evento)
+        if evento_serializer.is_valid():
+            json_data = evento_serializer.data
             return Response(json_data, status=status.HTTP_200_OK)
         else:
-            return Response(producto_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(evento_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Devuelve todas las pujas dado un identificador de producto
+
+#Devuelve las coordendas dada una cadena
 @api_view(['GET'])
-def pujas_list(request, id):
-    if request.method == 'GET':
-        pujas = list(collection_pujas.find({"identificador": id}).sort('cantidadOfrecida', pymongo.ASCENDING))
-        pujas_serializer = PujaSerializer(data=pujas, many= True)
-        if pujas_serializer.is_valid():
-            json_data = pujas_serializer.data
-            return Response(json_data, status=status.HTTP_200_OK)
-        else:
-            return Response(pujas_serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
-        
+def form(request, cadena):
+        geolocator = Nominatim(user_agent="my_geocoder")
+        # Obtiene las coordenadas geográficas de la dirección postal
+        ubicacion = geolocator.geocode(cadena)
+        coordenadas = (ubicacion.latitude, ubicacion.longitude)
 
-# Devuelve la ultima puja dado un identificador de producto
-@api_view(['GET'])
-def pujas_last(request, id):
-    if request.method == 'GET':
-        pujas = list(collection_pujas.find({"identificador": id}).sort('cantidadOfrecida', pymongo.DESCENDING))
-        pujas_serializer = PujaSerializer(data=pujas, many= True)
-        if pujas_serializer.is_valid():
-            json_data = pujas_serializer.data
-            return Response(json_data[0], status=status.HTTP_200_OK)
-        else:
-            return Response(pujas_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+        response_data = {
+            'latitud': f"{coordenadas[0]}",
+            'longitud': f"{coordenadas[1]}"
+        }
+        return JsonResponse(response_data, content_type='application/json', json_dumps_params={'ensure_ascii': False})
 
-# Crea una puja
-@api_view(['POST'])
-def pujas_create(request):
-    if request.method == 'POST':
-        serializer = PujaSerializer(data=request.data)
-        if serializer.is_valid():
-            puja = serializer.validated_data
-            puja['fecha'] = datetime.now()
-            puja['cantidadOfrecida'] = float(puja['cantidadOfrecida']) 
+def get_coordinates(cadena):
+    geolocator = Nominatim(user_agent="my_geocoder")
+    ubicacion = geolocator.geocode(cadena)
+    coordenadas = (ubicacion.latitude, ubicacion.longitude)
 
-            result = collection_pujas.insert_one(puja)
-            if result.acknowledged:
-                return Response({"message": "Puja creada con éxito."}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"error": "Algo salió mal. Puja no creada."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return {
+        'latitud': f"{coordenadas[0]}",
+        'longitud': f"{coordenadas[1]}"
+    }
+
+
+
