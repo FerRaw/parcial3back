@@ -2,13 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "parcial3Be/**",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.9",
-        "buildCommand": "pip install -r requirements.txt && python -m compileall ."
-      }
+      "src": "parcial3Be/wsgi.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
