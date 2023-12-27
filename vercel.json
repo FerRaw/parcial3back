@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "build": [
+  "builds": [
     {
       "src": "parcial3Be/wsgi.py",
       "use": "@vercel/python"
