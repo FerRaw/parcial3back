@@ -11,4 +11,3 @@ requests
 djangorestframework-simplejwt
 cloudinary
 google-auth
-mangum
